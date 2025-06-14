@@ -59,7 +59,7 @@
   </style>
 </head>
 <body>
-  <h1>Stake 原創 21點 輔助工具</h1>
+  <h1>Stake 21點 輔助工具</h1>
 
   <div class="section">
     <h2>🎮 遊戲模式選擇</h2>
@@ -110,11 +110,13 @@
 
     <div class="result" id="nextBet">下一注建議：-</div>
   </div>
+
   <div class="section">
     <h2>🧠 算牌計數器（Hi-Lo）</h2>
     <p>點選出過的牌，系統會自動幫你統計目前計數（Running Count）</p>
     <div id="cardButtons"></div>
     <div class="result" id="countResult">目前計數：0</div>
+    <div class="result" id="countHint">目前為中立階段，維持基本下注策略。</div>
     <button onclick="resetCount()" class="danger">🔁 重置計數</button>
   </div>
 
@@ -145,9 +147,7 @@
     function isPair(c1, c2) {
       if (!c1 || !c2) return false;
       if (c1 === c2) return true;
-      const val1 = getCardValue(c1);
-      const val2 = getCardValue(c2);
-      return val1 === val2;
+      return getCardValue(c1) === getCardValue(c2);
     }
 
     function getStrategy() {
@@ -163,7 +163,6 @@
       const dealerVal = getCardValue(dealerCard, true);
       let suggestion = "";
 
-      // 分牌邏輯
       if (mode === "live" && rawCards.length === 2 && isPair(rawCards[0], rawCards[1])) {
         const pairVal = getCardValue(rawCards[0]);
         if (pairVal === 8 || pairVal === 11) {
@@ -185,7 +184,6 @@
         return;
       }
 
-      // 總點數計算
       let total = 0, aceCount = 0;
       rawCards.forEach(card => {
         if (card === "A") aceCount++;
@@ -246,7 +244,6 @@
       document.getElementById("strategyResult").innerText = "建議會顯示在這裡";
     }
 
-    // 算牌器初始化
     let runningCount = 0;
     const hiLoValues = {
       "2": 1, "3": 1, "4": 1, "5": 1, "6": 1,
@@ -263,6 +260,17 @@
       btn.onclick = () => {
         runningCount += hiLoValues[card] || 0;
         document.getElementById("countResult").innerText = "目前計數：" + runningCount;
+        let hint = "";
+        if (runningCount <= -3) {
+          hint = "❌ 對你很不利，建議減少下注或暫停一局。";
+        } else if (runningCount >= -2 && runningCount <= 2) {
+          hint = "⚖️ 中立階段，維持基本下注策略。";
+        } else if (runningCount >= 3 && runningCount <= 6) {
+          hint = "✅ 稍微有利，可考慮提高下注金額。";
+        } else if (runningCount >= 7) {
+          hint = "🔥 非常有利！剩下大牌多，加大注碼！";
+        }
+        document.getElementById("countHint").innerText = hint;
       };
       buttonArea.appendChild(btn);
     });
@@ -270,6 +278,7 @@
     function resetCount() {
       runningCount = 0;
       document.getElementById("countResult").innerText = "目前計數：0";
+      document.getElementById("countHint").innerText = "目前為中立階段，維持基本下注策略。";
     }
   </script>
 </body>
