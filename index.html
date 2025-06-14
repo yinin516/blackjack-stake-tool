@@ -105,6 +105,13 @@
     <div class="result" id="countResult">目前計數：0</div>
     <div class="result" id="countAdvice"></div>
   </div>
+  <div class="section">
+    <h2>📘 結果紀錄</h2>
+    <button onclick="updateStats(currentBet(),'win')" style="background:#4ade80">🎉 WIN</button>
+    <button onclick="updateStats(currentBet(),'lose')" style="background:#f87171">💥 LOSE</button>
+    <button onclick="updateStats(currentBet(),'draw')" style="background:#fbbf24">🤝 DRAW</button>
+    <button onclick="updateStats(currentBet(),'bust')" style="background:#7dd3fc">💣 BUST</button>
+  </div>
 
   <div class="stat-card">
     <p>總下注金額：<span id="totalBet">0</span></p>
@@ -117,157 +124,178 @@
   </div>
 
   <script>
-   // 建牌面選單
-const allRanks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-const cardSelectors = ["card1", "card2", "card3", "card4", "card5", "dealerCard", "countCard"];
-cardSelectors.forEach(id => {
-  const el = document.getElementById(id);
-  allRanks.forEach(r => {
-    const opt = document.createElement("option");
-    opt.value = r;
-    opt.text = r;
-    el.appendChild(opt);
-  });
-});
+    // 初始化牌面
+    const allRanks = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
+    ["card1","card2","card3","card4","card5","dealerCard"].forEach(id => {
+      const sel = document.getElementById(id);
+      allRanks.forEach(card => {
+        const opt = document.createElement("option");
+        opt.value = card;
+        opt.text = card;
+        sel.appendChild(opt);
+      });
+    });
 
-// 清空牌面
-function clearCards() {
-  ["card1", "card2", "card3", "card4", "card5", "dealerCard"].forEach(id => {
-    document.getElementById(id).value = "";
-  });
-  document.getElementById("strategyResult").innerText = "建議會顯示在這裡";
-}
+    // 建立 Hi-Lo 按鈕列
+    const countArea = document.querySelector("#countCard").parentElement;
+    document.getElementById("countCard").remove(); // 移除原下拉選單
+    allRanks.forEach(card => {
+      const btn = document.createElement("button");
+      btn.innerText = card;
+      btn.style.marginRight = "6px";
+      btn.onclick = () => handleHiLoCount(card);
+      countArea.insertBefore(btn, countArea.children[countArea.children.length - 2]); // 加入 reset 前
+    });
 
-// 牌面轉數值
-function getCardValue(c) {
-  if (c === "A") return 11;
-  if (["K", "Q", "J"].includes(c)) return 10;
-  return parseInt(c);
-}
-
-// 基本策略建議（簡化版）
-function getStrategy() {
-  const c1 = document.getElementById("card1").value;
-  const c2 = document.getElementById("card2").value;
-  const dealer = document.getElementById("dealerCard").value;
-  if (!c1 || !c2 || !dealer) return;
-
-  const total = getCardValue(c1) + getCardValue(c2);
-  let advice = "";
-
-  if (total >= 17) advice = "停牌";
-  else if (total >= 13 && ["2", "3", "4", "5", "6"].includes(dealer)) advice = "停牌";
-  else if (total === 11) advice = "加倍";
-  else if (total === 10 && getCardValue(dealer) < 10) advice = "加倍";
-  else if (total === 9 && ["3", "4", "5", "6"].includes(dealer)) advice = "加倍";
-  else advice = "叫牌";
-
-  document.getElementById("strategyResult").innerText = "建議：" + advice;
-}
-
-// 注碼建議邏輯
-let betHistory = [];
-function getNextBet() {
-  const bankroll = parseFloat(document.getElementById("bankroll").value);
-  const base = parseFloat(document.getElementById("baseBet").value);
-  const strat = document.getElementById("bettingStrategy").value;
-
-  let next = base;
-  if (strat === "martingale" && betHistory.length > 0 && betHistory[betHistory.length-1].result === "lose") {
-    next = betHistory[betHistory.length-1].bet * 2;
-  } else if (strat === "fibonacci") {
-    const fib = [base, base];
-    for (let i = 2; i < 20; i++) fib[i] = fib[i-1] + fib[i-2];
-    let loseCount = betHistory.filter(b => b.result === "lose").length;
-    next = fib[Math.min(loseCount, 19)];
-  } else if (strat === "anti-martingale" && betHistory.length > 0 && betHistory[betHistory.length-1].result === "win") {
-    next = betHistory[betHistory.length-1].bet * 2;
-  }
-
-  document.getElementById("betResult").innerText = "推薦下注：" + next.toFixed(2);
-}
-
-// 算牌器
-let count = 0;
-function addToCount() {
-  const card = document.getElementById("countCard").value;
-  if (!card) return;
-  if (["2", "3", "4", "5", "6"].includes(card)) count++;
-  else if (["10", "J", "Q", "K", "A"].includes(card)) count--;
-  document.getElementById("countResult").innerText = "目前計數：" + count;
-  let advice = "下注中等";
-  if (count >= 3) advice = "大注！有優勢";
-  if (count <= -2) advice = "保守下注";
-  document.getElementById("countAdvice").innerText = advice;
-}
-function resetCount() {
-  count = 0;
-  document.getElementById("countResult").innerText = "目前計數：0";
-  document.getElementById("countAdvice").innerText = "";
-}
-
-// 統計資料與圖表更新
-let stats = {
-  totalBet: 0, profit: 0, wins: 0, losses: 0, draws: 0, busts: 0, history: []
-};
-const totalBetEl = document.getElementById("totalBet");
-const profitEl = document.getElementById("profit");
-const winsEl = document.getElementById("wins");
-const lossesEl = document.getElementById("losses");
-const drawsEl = document.getElementById("draws");
-const bustsEl = document.getElementById("busts");
-
-const ctx = document.getElementById("profitChart").getContext("2d");
-const chart = new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [{
-      label: '利潤走勢',
-      data: [],
-      borderColor: '#f87171',
-      backgroundColor: 'rgba(248,113,113,0.2)',
-      tension: 0.3,
-      fill: true
-    }]
-  },
-  options: {
-    responsive: true,
-    scales: {
-      y: { ticks: { color: '#e2e8f0' }},
-      x: { ticks: { color: '#e2e8f0' }}
-    },
-    plugins: {
-      legend: {
-        labels: { color: '#e2e8f0' }
-      }
+    let runningCount = 0;
+    function handleHiLoCount(card) {
+      if (["2","3","4","5","6"].includes(card)) runningCount++;
+      else if (["10","J","Q","K","A"].includes(card)) runningCount--;
+      document.getElementById("countResult").innerText = "目前計數：" + runningCount;
+      document.getElementById("countAdvice").innerText =
+        runningCount >= 3 ? "🔥 有優勢可加大注" :
+        runningCount <= -2 ? "⚠️ 謹慎下注" : "⚖️ 普通下注";
     }
-  }
-});
 
-// 模擬結果紀錄：你可以呼叫 updateStats(bet, result)
-function updateStats(bet, result) {
-  stats.totalBet += bet;
-  let delta = 0;
-  if (result === "win") { stats.wins++; delta = bet; }
-  else if (result === "lose") { stats.losses++; delta = -bet; }
-  else if (result === "draw") stats.draws++;
-  else if (result === "bust") { stats.busts++; delta = -bet; }
+    function resetCount() {
+      runningCount = 0;
+      document.getElementById("countResult").innerText = "目前計數：0";
+      document.getElementById("countAdvice").innerText = "";
+    }
 
-  stats.profit += delta;
-  stats.history.push(stats.profit);
+    function clearCards() {
+      ["card1","card2","card3","card4","card5","dealerCard"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+      document.getElementById("strategyResult").innerText = "建議會顯示在這裡";
+    }
+    function getCardValue(card) {
+      if (["K","Q","J"].includes(card)) return 10;
+      if (card === "A") return 11;
+      return parseInt(card);
+    }
 
-  totalBetEl.innerText = stats.totalBet.toFixed(2);
-  profitEl.innerText = stats.profit.toFixed(2);
-  winsEl.innerText = stats.wins;
-  lossesEl.innerText = stats.losses;
-  drawsEl.innerText = stats.draws;
-  bustsEl.innerText = stats.busts;
+    // 分牌邏輯（只處理開局兩張）
+    function shouldSplit(pairCard, dealerCard) {
+      const v = getCardValue(pairCard);
+      const d = getCardValue(dealerCard);
 
-  chart.data.labels.push("局 " + stats.history.length);
-  chart.data.datasets[0].data = stats.history;
-  chart.update();
-}
+      if (pairCard === "A" || v === 8) return true;
+      if (v === 10) return false;
+      if (v === 9) return ![7,10,11].includes(d);
+      if (v === 7) return d <= 7;
+      if (v === 6) return d <= 6;
+      if (v === 4) return d >= 5 && d <= 6;
+      if (v === 2 || v === 3) return d <= 7;
+      return false;
+    }
+
+    function getStrategy() {
+      const c1 = document.getElementById("card1").value;
+      const c2 = document.getElementById("card2").value;
+      const dealer = document.getElementById("dealerCard").value;
+
+      if (!c1 || !c2 || !dealer) {
+        document.getElementById("strategyResult").innerText = "請選擇兩張牌與莊家明牌";
+        return;
+      }
+
+      // 分牌邏輯
+      if (c1 === c2 && shouldSplit(c1, dealer)) {
+        document.getElementById("strategyResult").innerText = "建議：✌️ 分牌";
+        return;
+      }
+
+      const total = getCardValue(c1) + getCardValue(c2);
+      const dVal = getCardValue(dealer);
+      let advice = "";
+
+      if (total >= 17) advice = "✋ 停牌";
+      else if (total >= 13 && dVal <= 6) advice = "✋ 停牌";
+      else if (total === 12 && dVal >= 4 && dVal <= 6) advice = "✋ 停牌";
+      else if (total === 11) advice = "💣 加倍";
+      else if (total === 10 && dVal <= 9) advice = "💣 加倍";
+      else if (total === 9 && dVal >= 3 && dVal <= 6) advice = "💣 加倍";
+      else advice = "🃏 叫牌";
+
+      document.getElementById("strategyResult").innerText = "建議：" + advice;
+    }
+
+    function currentBet() {
+      const base = parseFloat(document.getElementById("baseBet").value);
+      const strat = document.getElementById("bettingStrategy").value;
+      let last = betHistory.at(-1);
+      if (!last) return base;
+
+      if (strat === "martingale" && last.result === "lose") return last.bet * 2;
+      if (strat === "fibonacci") {
+        const fib = [1,1,2,3,5,8,13]; // index as lose count
+        let loseCount = betHistory.filter(b => b.result === "lose").length;
+        return base * fib[Math.min(loseCount, fib.length-1)];
+      }
+      if (strat === "anti-martingale" && last.result === "win") return last.bet * 2;
+      return base;
+    }
+
+    function getNextBet() {
+      const next = currentBet();
+      document.getElementById("betResult").innerText = "推薦下注：" + next.toFixed(2);
+    }
+
+    let stats = { totalBet: 0, profit: 0, wins: 0, losses: 0, draws: 0, busts: 0, history: [] };
+    let betHistory = [];
+
+    function updateStats(bet, result) {
+      stats.totalBet += bet;
+      let delta = 0;
+      if (result === "win") { stats.wins++; delta = bet; }
+      else if (result === "lose") { stats.losses++; delta = -bet; }
+      else if (result === "draw") stats.draws++;
+      else if (result === "bust") { stats.busts++; delta = -bet; }
+
+      stats.profit += delta;
+      stats.history.push(stats.profit);
+      betHistory.push({ bet, result });
+
+      document.getElementById("totalBet").innerText = stats.totalBet.toFixed(2);
+      document.getElementById("profit").innerText = stats.profit.toFixed(2);
+      document.getElementById("wins").innerText = stats.wins;
+      document.getElementById("losses").innerText = stats.losses;
+      document.getElementById("draws").innerText = stats.draws;
+      document.getElementById("busts").innerText = stats.busts;
+
+      chart.data.labels.push("局 " + stats.history.length);
+      chart.data.datasets[0].data = stats.history;
+      chart.update();
+    }
+
+    const ctx = document.getElementById("profitChart").getContext("2d");
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: '利潤走勢',
+          data: [],
+          borderColor: '#f87171',
+          backgroundColor: 'rgba(248,113,113,0.2)',
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { ticks: { color: '#e2e8f0' }},
+          x: { ticks: { color: '#e2e8f0' }}
+        },
+        plugins: {
+          legend: {
+            labels: { color: '#e2e8f0' }
+          }
+        }
+      }
+    });
   </script>
 </body>
 </html>
