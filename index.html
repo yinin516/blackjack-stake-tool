@@ -1,137 +1,301 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <title>Stake 真人 21 點輔助工具</title>
+  <meta charset="UTF-8" />
+  <title>Stake Blackjack 全功能輔助工具</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { background-color: #0f172a; font-family: 'Segoe UI', sans-serif; color: #e2e8f0; padding: 20px; }
-    h1, h2 { color: #facc15; }
-    .section { background-color: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-    select, input, button { font-size: 16px; margin: 6px; border-radius: 8px; padding: 8px 10px; }
-    select, input { background-color: #334155; color: white; border: none; }
-    button { background: #22c55e; color: black; font-weight: bold; cursor: pointer; }
-    .danger { background: #ef4444; color: white; }
-    .result { margin-top: 10px; font-size: 18px; }
-    .chart-container { height: 300px; margin-top: 20px; }
-    .hilobox button { background-color: #475569; color: white; margin: 2px; border: none; padding: 5px 8px; border-radius: 6px; }
-    .hilobox { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px; }
-    .mode-toggle { margin-top: 10px; }
+    body {
+      background-color: #0f172a;
+      font-family: 'Segoe UI', sans-serif;
+      color: #e2e8f0;
+      padding: 20px;
+    }
+    h1, h2 {
+      color: #facc15;
+    }
+    .section, .stat-card, .chart-container {
+      background-color: #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+    label, select, input, button {
+      font-size: 16px;
+      margin: 6px;
+    }
+    select, input {
+      background-color: #334155;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    button {
+      background: #22c55e;
+      color: black;
+      font-weight: bold;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .danger {
+      background: #ef4444;
+      color: white;
+    }
+    .result, .stat-card p {
+      font-size: 18px;
+      margin-top: 10px;
+    }
+    .win { color: #4ade80; }
+    .loss { color: #f87171; }
+    .profit { color: #facc15; }
   </style>
 </head>
 <body>
-  <h1>Stake 真人 21 點輔助工具</h1>
-
-  <div class="section mode-toggle">
-    <label><input type="radio" name="mode" value="original" checked> 原創模式</label>
-    <label><input type="radio" name="mode" value="live"> 真人模式</label>
-  </div>
+  <h1>Stake 真人 21點 輔助工具</h1>
 
   <div class="section">
-    <h2>下注建議區</h2>
-    <label>初始本金：</label>
-    <input type="number" id="capital" value="1000">
-    <label>第一注：</label>
-    <input type="number" id="firstBet" value="50">
-    <label>策略：</label>
-    <select id="betStyle">
-      <option value="aggressive">衝一點</option>
-      <option value="safe">穩一點</option>
-      <option value="slow">慢慢打</option>
+    <h2>🎮 模式切換</h2>
+    <label>模式：</label>
+    <select id="modeSelect">
+      <option value="live">真人 21 點</option>
+      <option value="stake">Stake 原創</option>
     </select>
-    <button onclick="getNextBet()">下一注建議</button>
-    <div class="result" id="betResult"></div>
   </div>
 
   <div class="section">
-    <h2>基本策略建議（含分牌）</h2>
+    <h2>🎴 基本策略建議</h2>
     <label>你的牌：</label>
     <select id="card1"></select>
     <select id="card2"></select>
     <select id="card3"><option value="">-</option></select>
     <select id="card4"><option value="">-</option></select>
     <select id="card5"><option value="">-</option></select>
+
     <label>莊家明牌：</label>
     <select id="dealerCard"></select>
     <button onclick="getStrategy()">取得建議</button>
     <button class="danger" onclick="clearCards()">清空</button>
     <div class="result" id="strategyResult">建議會顯示在這裡</div>
   </div>
+    <div class="section">
+    <h2>📊 注碼建議</h2>
+    <label>本金：</label><input type="number" id="bankroll" value="1000">
+    <label>第一注：</label><input type="number" id="baseBet" value="50">
+    <label>策略：</label>
+    <select id="bettingStrategy">
+      <option value="flat">固定注</option>
+      <option value="martingale">馬丁</option>
+      <option value="fibonacci">費波那契</option>
+      <option value="anti-martingale">反馬丁</option>
+    </select>
+    <button onclick="getNextBet()">下一注建議</button>
+    <div class="result" id="betResult">建議注碼會顯示在這裡</div>
+  </div>
 
-  <div class="section">
-    <h2>算牌系統（Hi-Lo + True Count）</h2>
-    <label>牌組數：</label>
-    <input type="number" id="deckCount" value="6" min="1">
-    <div class="hilobox" id="hiloButtons"></div>
-    <div class="result" id="hiloResult">尚未點選任何牌</div>
+  <div class="section" id="hiloSection">
+    <h2>🧠 算牌器（Hi-Lo）</h2>
+    <p>點選下方的牌來記錄 Hi-Lo 計數：</p>
+    <div id="cardButtons"></div>
+    <div class="result" id="countResult">目前計數：0</div>
+    <div class="result" id="countAdvice"></div>
+    <button class="danger" onclick="resetCount()">🔁 重置計數</button>
   </div>
 
   <div class="section">
-    <h2>統計紀錄</h2>
-    <button onclick="recordResult('WIN')">WIN</button>
-    <button onclick="recordResult('LOSE')">LOSE</button>
-    <button onclick="recordResult('PUSH')">PUSH</button>
-    <button class="danger" onclick="resetStats()">清空紀錄</button>
-    <div id="stats">尚無紀錄</div>
-    <div class="chart-container">
-      <canvas id="resultChart"></canvas>
-    </div>
+    <h2>📘 結果紀錄</h2>
+    <button onclick="updateStats(currentBet(),'win')" style="background:#4ade80">🎉 WIN</button>
+    <button onclick="updateStats(currentBet(),'lose')" style="background:#f87171">💥 LOSE</button>
+    <button onclick="updateStats(currentBet(),'draw')" style="background:#fbbf24">🤝 DRAW</button>
+    <button onclick="updateStats(currentBet(),'bust')" style="background:#7dd3fc">💣 BUST</button>
   </div>
 
+  <div class="stat-card">
+    <p>總下注金額：<span id="totalBet">0</span></p>
+    <p>目前利潤：<span id="profit" class="profit">0</span></p>
+    <p>勝：<span id="wins" class="win">0</span> ｜ 輸：<span id="losses" class="loss">0</span> ｜ 和：<span id="draws">0</span> ｜ 爆牌：<span id="busts">0</span></p>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="profitChart" height="150"></canvas>
+  </div>
   <script>
-    const allRanks = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
-    ["card1","card2","card3","card4","card5","dealerCard"].forEach(id => {
-      const sel = document.getElementById(id);
-      allRanks.forEach(card => {
-        const opt = document.createElement("option");
-        opt.value = card;
-        opt.text = card;
-        sel.appendChild(opt);
-      });
+  const allRanks = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
+  ["card1","card2","card3","card4","card5","dealerCard"].forEach(id => {
+    const sel = document.getElementById(id);
+    allRanks.forEach(card => {
+      const opt = document.createElement("option");
+      opt.value = card;
+      opt.text = card;
+      sel.appendChild(opt);
     });
+  });
 
-    // 下一段將貼上主要策略邏輯、算牌統計與圖表邏輯...
-  </script>
+  window.onload = () => {
+    const cardButtons = document.getElementById("cardButtons");
+    allRanks.forEach(card => {
+      const btn = document.createElement("button");
+      btn.innerText = card;
+      btn.style.margin = "6px";
+      btn.onclick = () => handleHiLoCount(card);
+      cardButtons.appendChild(btn);
+    });
+    document.getElementById("modeSelect").dispatchEvent(new Event("change"));
+  };
+
+  document.getElementById("modeSelect").addEventListener("change", () => {
+    const mode = document.getElementById("modeSelect").value;
+    const hilo = document.getElementById("hiloSection");
+    hilo.style.display = (mode === "stake") ? "none" : "block";
+  });
+
+  let runningCount = 0;
+  function handleHiLoCount(card) {
+    if (["2","3","4","5","6"].includes(card)) runningCount++;
+    else if (["10","J","Q","K","A"].includes(card)) runningCount--;
+    document.getElementById("countResult").innerText = "目前計數：" + runningCount;
+    document.getElementById("countAdvice").innerText =
+      runningCount >= 3 ? "🔥 有優勢可加大注" :
+      runningCount <= -2 ? "⚠️ 謹慎下注" : "⚖️ 普通下注";
+  }
+
+  function resetCount() {
+    runningCount = 0;
+    document.getElementById("countResult").innerText = "目前計數：0";
+    document.getElementById("countAdvice").innerText = "";
+  }
+
+  function clearCards() {
+    ["card1","card2","card3","card4","card5","dealerCard"].forEach(id => {
+      document.getElementById(id).value = "";
+    });
+    document.getElementById("strategyResult").innerText = "建議會顯示在這裡";
+  }
+    function getCardValue(card) {
+    if (["K","Q","J"].includes(card)) return 10;
+    if (card === "A") return 11;
+    return parseInt(card);
+  }
+
+  function shouldSplit(pairCard, dealerCard) {
+    const v = getCardValue(pairCard);
+    const d = getCardValue(dealerCard);
+    if (pairCard === "A" || v === 8) return true;
+    if (v === 10) return false;
+    if (v === 9) return ![7,10,11].includes(d);
+    if (v === 7) return d <= 7;
+    if (v === 6) return d <= 6;
+    if (v === 4) return d >= 5 && d <= 6;
+    if (v === 2 || v === 3) return d <= 7;
+    return false;
+  }
+
+  function getStrategy() {
+    const c1 = document.getElementById("card1").value;
+    const c2 = document.getElementById("card2").value;
+    const dealer = document.getElementById("dealerCard").value;
+
+    if (!c1 || !c2 || !dealer) {
+      document.getElementById("strategyResult").innerText = "請選擇兩張牌與莊家明牌";
+      return;
+    }
+
+    if (c1 === c2 && shouldSplit(c1, dealer)) {
+      document.getElementById("strategyResult").innerText = "建議：✌️ 分牌";
+      return;
+    }
+
+    const total = getCardValue(c1) + getCardValue(c2);
+    const dVal = getCardValue(dealer);
+    let advice = "";
+
+    if (total >= 17) advice = "✋ 停牌";
+    else if (total >= 13 && dVal <= 6) advice = "✋ 停牌";
+    else if (total === 12 && dVal >= 4 && dVal <= 6) advice = "✋ 停牌";
+    else if (total === 11) advice = "💣 加倍";
+    else if (total === 10 && dVal <= 9) advice = "💣 加倍";
+    else if (total === 9 && dVal >= 3 && dVal <= 6) advice = "💣 加倍";
+    else advice = "🃏 叫牌";
+
+    document.getElementById("strategyResult").innerText = "建議：" + advice;
+  }
+
+  function currentBet() {
+    const base = parseFloat(document.getElementById("baseBet").value);
+    const strat = document.getElementById("bettingStrategy").value;
+    let last = betHistory.at(-1);
+    if (!last) return base;
+
+    if (strat === "martingale" && last.result === "lose") return last.bet * 2;
+    if (strat === "fibonacci") {
+      const fib = [1,1,2,3,5,8,13];
+      let loseCount = betHistory.filter(b => b.result === "lose").length;
+      return base * fib[Math.min(loseCount, fib.length - 1)];
+    }
+    if (strat === "anti-martingale" && last.result === "win") return last.bet * 2;
+    return base;
+  }
+
+  function getNextBet() {
+    const next = currentBet();
+    document.getElementById("betResult").innerText = "推薦下注：" + next.toFixed(2);
+  }
+    let stats = { totalBet: 0, profit: 0, wins: 0, losses: 0, draws: 0, busts: 0, history: [] };
+  let betHistory = [];
+
+  function updateStats(bet, result) {
+    stats.totalBet += bet;
+    let delta = 0;
+    if (result === "win") { stats.wins++; delta = bet; }
+    else if (result === "lose") { stats.losses++; delta = -bet; }
+    else if (result === "draw") stats.draws++;
+    else if (result === "bust") { stats.busts++; delta = -bet; }
+
+    stats.profit += delta;
+    stats.history.push(stats.profit);
+    betHistory.push({ bet, result });
+
+    document.getElementById("totalBet").innerText = stats.totalBet.toFixed(2);
+    document.getElementById("profit").innerText = stats.profit.toFixed(2);
+    document.getElementById("wins").innerText = stats.wins;
+    document.getElementById("losses").innerText = stats.losses;
+    document.getElementById("draws").innerText = stats.draws;
+    document.getElementById("busts").innerText = stats.busts;
+
+    chart.data.labels.push("局 " + stats.history.length);
+    chart.data.datasets[0].data = stats.history;
+    chart.update();
+  }
+
+  const ctx = document.getElementById("profitChart").getContext("2d");
+  const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: '利潤走勢',
+        data: [],
+        borderColor: '#facc15',
+        backgroundColor: 'rgba(250,204,21,0.2)',
+        tension: 0.3,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { ticks: { color: '#e2e8f0' }},
+        x: { ticks: { color: '#e2e8f0' }}
+      },
+      plugins: {
+        legend: {
+          labels: { color: '#e2e8f0' }
+        }
+      }
+    }
+  });
+</script>
 </body>
-</html>
-// --- 策略與下注建議 ---
-function getCardValue(c) {
-  if (!c) return 0;
-  if (["K","Q","J"].includes(c)) return 10;
-  if (c === "A") return 11;
-  return parseInt(c);
-}
-
-function isSoftHand(cards) {
-  let aceCount = cards.filter(c => c === "A").length;
-  let total = cards.map(getCardValue).reduce((a,b)=>a+b,0);
-  while (total > 21 && aceCount > 0) {
-    total -= 10; aceCount--;
-  }
-  return cards.includes("A") && total <= 21 && aceCount > 0;
-}
-
-function getStrategy() {
-  const mode = document.querySelector('input[name="mode"]:checked').value;
-  const cards = [1,2,3,4,5].map(i => document.getElementById("card"+i).value).filter(Boolean);
-  const dealer = document.getElementById("dealerCard").value;
-  if (cards.length < 2 || !dealer) return;
-
-  const total = cards.map(getCardValue).reduce((a,b)=>a+b,0);
-  const dealerVal = getCardValue(dealer);
-  const soft = isSoftHand(cards);
-
-  let advice = "";
-  if (cards.length === 2 && cards[0] === cards[1]) {
-    const pair = cards[0];
-    if (["A","8"].includes(pair)) advice = "✌️ 分牌";
-    else if (pair === "9" && ![7,10,11].includes(dealerVal)) advice = "✌️ 分牌";
-    else if (pair === "7" && dealerVal <= 7) advice = "✌️ 分牌";
-    else if (pair === "6" && dealerVal <= 6) advice = "✌️ 分牌";
-    else if (pair === "4" && dealerVal >= 5 && dealerVal <= 6) advice = "✌️ 分牌";
-    else if (["2","3"].includes(pair) && dealerVal <= 7) advice = "✌️ 分牌";
-  }
-  if (!advice) {
-    if (soft) {
-      if (total <= 17) advice = "
 </html>
