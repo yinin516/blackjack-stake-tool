@@ -1,151 +1,140 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <title>Stake 21點 輔助工具</title>
-    <style>
-        body {
-            background: #111;
-            color: #fff;
-            font-family: 'Arial', sans-serif;
-            padding: 20px;
-            line-height: 1.6;
-        }
-        h1 {
-            text-align: center;
-        }
-        label {
-            display: block;
-            margin-top: 10px;
-        }
-        select, input, button {
-            padding: 5px;
-            margin-top: 5px;
-            font-size: 16px;
-        }
-        .section {
-            background: #222;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        .result {
-            font-size: 20px;
-            font-weight: bold;
-            margin-top: 10px;
-            color: #0f0;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Stake 21點 輔助工具</title>
+  <style>
+    body {
+      background-color: #0f172a;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 20px;
+      line-height: 1.5;
+    }
+    h1 {
+      text-align: center;
+      font-size: 28px;
+      color: #facc15;
+    }
+    .section {
+      background-color: #1e293b;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    label {
+      font-weight: 500;
+      display: block;
+      margin: 15px 0 5px;
+    }
+    select, input, button {
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    select, input {
+      background: #334155;
+      color: #f1f5f9;
+      width: 90px;
+    }
+    button {
+      background: #22c55e;
+      color: #000;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .result {
+      margin-top: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      color: #4ade80;
+    }
+  </style>
 </head>
 <body>
+  <h1>Stake 原創 21點 輔助工具</h1>
 
-<h1>Stake 原創 21點 輔助工具</h1>
-
-<div class="section">
-    <h2>🎴 基本策略建議</h2>
-    <label>你的兩張牌：</label>
+  <div class="section">
+    <h2>🎴 基本策略建議 (最多 5 張手牌)</h2>
+    <label>你的牌：</label>
     <select id="card1"></select>
     <select id="card2"></select>
+    <select id="card3"><option value="">-</option></select>
+    <select id="card4"><option value="">-</option></select>
+    <select id="card5"><option value="">-</option></select>
 
     <label>莊家明牌：</label>
     <select id="dealerCard"></select>
-
     <button onclick="getStrategy()">取得建議</button>
-    <div class="result" id="strategyResult">建議將顯示在這裡</div>
-</div>
 
-<div class="section">
-    <h2>💰 下注建議</h2>
-    <label>初始本金：</label>
-    <input type="number" id="startingBankroll" value="100">
+    <div class="result" id="strategyResult">建議會顯示在這裡</div>
+  </div>
 
-    <label>第一注金額：</label>
-    <input type="number" id="baseBet" value="5">
+  <script>
+    const cards = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 
-    <label>下注策略：</label>
-    <select id="betStrategy">
-        <option value="flat">固定下注</option>
-        <option value="martingale">馬丁格爾</option>
-        <option value="fibonacci">費波那契</option>
-        <option value="anti">反馬丁格爾</option>
-    </select>
+    function populateSelect(id) {
+      const sel = document.getElementById(id);
+      cards.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c;
+        opt.text = c || "-";
+        sel.appendChild(opt);
+      });
+    }
 
-    <div>
-        <label>勝負紀錄：</label>
-        <button onclick="recordResult('win')">贏</button>
-        <button onclick="recordResult('lose')">輸</button>
-        <button onclick="recordResult('push')">和</button>
-    </div>
+    ["card1", "card2", "card3", "card4", "card5", "dealerCard"].forEach(populateSelect);
 
-    <div class="result" id="nextBet">下一注建議：-</div>
-</div>
-
-<script>
-    const cards = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-    const fibonacci = [1, 1, 2, 3, 5, 8, 13];
-    let fibIndex = 0;
-    let currentBet = 0;
-    let winStreak = 0;
-    let loseStreak = 0;
-
-    const c1 = document.getElementById("card1");
-    const c2 = document.getElementById("card2");
-    const dc = document.getElementById("dealerCard");
-
-    cards.forEach(c => {
-        c1.innerHTML += `<option value="${c}">${c}</option>`;
-        c2.innerHTML += `<option value="${c}">${c}</option>`;
-        dc.innerHTML += `<option value="${c}">${c}</option>`;
-    });
-
-    function getCardValue(card) {
-        if (card === "A") return 11;
-        if (["K", "Q", "J"].includes(card)) return 10;
-        return parseInt(card);
+    function getCardValue(card, aceAsOne = false) {
+      if (card === "A") return aceAsOne ? 1 : 11;
+      if (["K", "Q", "J"].includes(card)) return 10;
+      return parseInt(card) || 0;
     }
 
     function getStrategy() {
-        const p1 = getCardValue(c1.value);
-        const p2 = getCardValue(c2.value);
-        const total = p1 + p2;
-        const dealer = getCardValue(dc.value);
-        let action = "暫無建議";
+      const cardIds = ["card1", "card2", "card3", "card4", "card5"];
+      let rawCards = cardIds.map(id => document.getElementById(id).value).filter(c => c);
+      if (rawCards.length < 2) {
+        document.getElementById("strategyResult").innerText = "請至少選兩張手牌";
+        return;
+      }
 
-        if (total >= 17) action = "停牌";
-        else if (total >= 13 && dealer <= 6) action = "停牌";
-        else if (total == 12 && dealer >= 4 && dealer <= 6) action = "停牌";
-        else if (total <= 11) action = "叫牌";
-        else action = "叫牌";
+      const dealerCard = document.getElementById("dealerCard").value;
+      const dealerVal = getCardValue(dealerCard, true);
 
-        document.getElementById("strategyResult").innerText = `建議：${action}`;
+      let total = 0;
+      let aceCount = 0;
+      rawCards.forEach(card => {
+        if (card === "A") aceCount++;
+        total += getCardValue(card);
+      });
+
+      while (total > 21 && aceCount > 0) {
+        total -= 10;
+        aceCount--;
+      }
+
+      let suggestion = "";
+      if (total > 21) {
+        suggestion = "💥 爆牌";
+      } else if (rawCards.length === 2 && total >= 9 && total <= 11) {
+        suggestion = "建議：💣 加倍（Double）";
+      } else if (total >= 17) {
+        suggestion = "建議：✋ 停牌";
+      } else if (total >= 13 && dealerVal <= 6) {
+        suggestion = "建議：✋ 停牌";
+      } else if (total === 12 && dealerVal >= 4 && dealerVal <= 6) {
+        suggestion = "建議：✋ 停牌";
+      } else {
+        suggestion = "建議：🃏 叫牌";
+      }
+
+      document.getElementById("strategyResult").innerText = suggestion;
     }
-
-    function recordResult(result) {
-        const base = parseFloat(document.getElementById("baseBet").value);
-        const strat = document.getElementById("betStrategy").value;
-
-        if (result === 'win') {
-            loseStreak = 0;
-            winStreak++;
-            if (strat === 'flat') currentBet = base;
-            else if (strat === 'martingale') currentBet = base;
-            else if (strat === 'fibonacci') fibIndex = Math.max(0, fibIndex - 2);
-            else if (strat === 'anti') currentBet = currentBet > 0 ? currentBet * 2 : base;
-        } else if (result === 'lose') {
-            winStreak = 0;
-            loseStreak++;
-            if (strat === 'flat') currentBet = base;
-            else if (strat === 'martingale') currentBet = currentBet > 0 ? currentBet * 2 : base;
-            else if (strat === 'fibonacci') fibIndex = Math.min(fibonacci.length - 1, fibIndex + 1);
-            else if (strat === 'anti') currentBet = base;
-        }
-
-        if (strat === 'fibonacci') currentBet = fibonacci[fibIndex] * base;
-        if (!currentBet || isNaN(currentBet)) currentBet = base;
-
-        document.getElementById("nextBet").innerText = `下一注建議：${currentBet.toFixed(2)}`;
-    }
-</script>
-
+  </script>
 </body>
 </html>
