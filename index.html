@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Stake 21點 輔助工具</title>
+    <style>
+        body {
+            background: #111;
+            color: #fff;
+            font-family: 'Arial', sans-serif;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            text-align: center;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        select, input, button {
+            padding: 5px;
+            margin-top: 5px;
+            font-size: 16px;
+        }
+        .section {
+            background: #222;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .result {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 10px;
+            color: #0f0;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Stake 原創 21點 輔助工具</h1>
+
+<div class="section">
+    <h2>🎴 基本策略建議</h2>
+    <label>你的兩張牌：</label>
+    <select id="card1"></select>
+    <select id="card2"></select>
+
+    <label>莊家明牌：</label>
+    <select id="dealerCard"></select>
+
+    <button onclick="getStrategy()">取得建議</button>
+    <div class="result" id="strategyResult">建議將顯示在這裡</div>
+</div>
+
+<div class="section">
+    <h2>💰 下注建議</h2>
+    <label>初始本金：</label>
+    <input type="number" id="startingBankroll" value="100">
+
+    <label>第一注金額：</label>
+    <input type="number" id="baseBet" value="5">
+
+    <label>下注策略：</label>
+    <select id="betStrategy">
+        <option value="flat">固定下注</option>
+        <option value="martingale">馬丁格爾</option>
+        <option value="fibonacci">費波那契</option>
+        <option value="anti">反馬丁格爾</option>
+    </select>
+
+    <div>
+        <label>勝負紀錄：</label>
+        <button onclick="recordResult('win')">贏</button>
+        <button onclick="recordResult('lose')">輸</button>
+        <button onclick="recordResult('push')">和</button>
+    </div>
+
+    <div class="result" id="nextBet">下一注建議：-</div>
+</div>
+
+<script>
+    const cards = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+    const fibonacci = [1, 1, 2, 3, 5, 8, 13];
+    let fibIndex = 0;
+    let currentBet = 0;
+    let winStreak = 0;
+    let loseStreak = 0;
+
+    const c1 = document.getElementById("card1");
+    const c2 = document.getElementById("card2");
+    const dc = document.getElementById("dealerCard");
+
+    cards.forEach(c => {
+        c1.innerHTML += `<option value="${c}">${c}</option>`;
+        c2.innerHTML += `<option value="${c}">${c}</option>`;
+        dc.innerHTML += `<option value="${c}">${c}</option>`;
+    });
+
+    function getCardValue(card) {
+        if (card === "A") return 11;
+        if (["K", "Q", "J"].includes(card)) return 10;
+        return parseInt(card);
+    }
+
+    function getStrategy() {
+        const p1 = getCardValue(c1.value);
+        const p2 = getCardValue(c2.value);
+        const total = p1 + p2;
+        const dealer = getCardValue(dc.value);
+        let action = "暫無建議";
+
+        if (total >= 17) action = "停牌";
+        else if (total >= 13 && dealer <= 6) action = "停牌";
+        else if (total == 12 && dealer >= 4 && dealer <= 6) action = "停牌";
+        else if (total <= 11) action = "叫牌";
+        else action = "叫牌";
+
+        document.getElementById("strategyResult").innerText = `建議：${action}`;
+    }
+
+    function recordResult(result) {
+        const base = parseFloat(document.getElementById("baseBet").value);
+        const strat = document.getElementById("betStrategy").value;
+
+        if (result === 'win') {
+            loseStreak = 0;
+            winStreak++;
+            if (strat === 'flat') currentBet = base;
+            else if (strat === 'martingale') currentBet = base;
+            else if (strat === 'fibonacci') fibIndex = Math.max(0, fibIndex - 2);
+            else if (strat === 'anti') currentBet = currentBet > 0 ? currentBet * 2 : base;
+        } else if (result === 'lose') {
+            winStreak = 0;
+            loseStreak++;
+            if (strat === 'flat') currentBet = base;
+            else if (strat === 'martingale') currentBet = currentBet > 0 ? currentBet * 2 : base;
+            else if (strat === 'fibonacci') fibIndex = Math.min(fibonacci.length - 1, fibIndex + 1);
+            else if (strat === 'anti') currentBet = base;
+        }
+
+        if (strat === 'fibonacci') currentBet = fibonacci[fibIndex] * base;
+        if (!currentBet || isNaN(currentBet)) currentBet = base;
+
+        document.getElementById("nextBet").innerText = `下一注建議：${currentBet.toFixed(2)}`;
+    }
+</script>
+
+</body>
+</html>
