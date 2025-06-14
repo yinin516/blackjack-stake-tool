@@ -168,11 +168,11 @@
   }
 
   function clearCards() {
-    ["card1","card2","card3","card4","card5","dealerCard"].forEach(id => {
-      document.getElementById(id).value = "";
-    });
-    document.getElementById("strategyResult").innerText = "建議會顯示在這裡";
-  }
+  ["card1","card2","card3","card4","card5","dealerCard"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+  document.getElementById("strategyResult").innerText = "建議會顯示在這裡";
+}
     function getCardValue(card) {
   if (["K","Q","J"].includes(card)) return 10;
   if (card === "A") return 11;
