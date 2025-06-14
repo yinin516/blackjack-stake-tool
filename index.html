@@ -95,16 +95,15 @@
     <button onclick="getNextBet()">下一注建議</button>
     <div class="result" id="betResult">建議注碼會顯示在這裡</div>
   </div>
-
-  <div class="section">
+  <div class="section" id="hiloSection">
     <h2>🧠 算牌器（Hi-Lo）</h2>
-    <label>選擇牌：</label>
-    <select id="countCard"></select>
-    <button onclick="addToCount()">加入</button>
-    <button class="danger" onclick="resetCount()">重置</button>
+    <p>點選下方的牌來記錄 Hi-Lo 計數：</p>
+    <div id="cardButtons"></div>
     <div class="result" id="countResult">目前計數：0</div>
     <div class="result" id="countAdvice"></div>
+    <button class="danger" onclick="resetCount()">🔁 重置計數</button>
   </div>
+
   <div class="section">
     <h2>📘 結果紀錄</h2>
     <button onclick="updateStats(currentBet(),'win')" style="background:#4ade80">🎉 WIN</button>
@@ -124,7 +123,6 @@
   </div>
 
   <script>
-    // 初始化牌面
     const allRanks = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
     ["card1","card2","card3","card4","card5","dealerCard"].forEach(id => {
       const sel = document.getElementById(id);
@@ -136,15 +134,25 @@
       });
     });
 
-    // 建立 Hi-Lo 按鈕列
-    const countArea = document.querySelector("#countCard").parentElement;
-    document.getElementById("countCard").remove(); // 移除原下拉選單
-    allRanks.forEach(card => {
-      const btn = document.createElement("button");
-      btn.innerText = card;
-      btn.style.marginRight = "6px";
-      btn.onclick = () => handleHiLoCount(card);
-      countArea.insertBefore(btn, countArea.children[countArea.children.length - 2]); // 加入 reset 前
+    window.onload = () => {
+      // 建立算牌器按鈕列
+      const cardButtons = document.getElementById("cardButtons");
+      allRanks.forEach(card => {
+        const btn = document.createElement("button");
+        btn.innerText = card;
+        btn.style.margin = "6px";
+        btn.onclick = () => handleHiLoCount(card);
+        cardButtons.appendChild(btn);
+      });
+
+      // 初始觸發模式切換邏輯
+      document.getElementById("modeSelect").dispatchEvent(new Event("change"));
+    };
+
+    document.getElementById("modeSelect").addEventListener("change", () => {
+      const mode = document.getElementById("modeSelect").value;
+      const hilo = document.getElementById("hiloSection");
+      hilo.style.display = (mode === "stake") ? "none" : "block";
     });
 
     let runningCount = 0;
@@ -175,7 +183,7 @@
       return parseInt(card);
     }
 
-    // 分牌邏輯（只處理開局兩張）
+    // 分牌策略
     function shouldSplit(pairCard, dealerCard) {
       const v = getCardValue(pairCard);
       const d = getCardValue(dealerCard);
@@ -200,7 +208,6 @@
         return;
       }
 
-      // 分牌邏輯
       if (c1 === c2 && shouldSplit(c1, dealer)) {
         document.getElementById("strategyResult").innerText = "建議：✌️ 分牌";
         return;
@@ -229,9 +236,9 @@
 
       if (strat === "martingale" && last.result === "lose") return last.bet * 2;
       if (strat === "fibonacci") {
-        const fib = [1,1,2,3,5,8,13]; // index as lose count
+        const fib = [1,1,2,3,5,8,13];
         let loseCount = betHistory.filter(b => b.result === "lose").length;
-        return base * fib[Math.min(loseCount, fib.length-1)];
+        return base * fib[Math.min(loseCount, fib.length - 1)];
       }
       if (strat === "anti-martingale" && last.result === "win") return last.bet * 2;
       return base;
@@ -277,8 +284,8 @@
         datasets: [{
           label: '利潤走勢',
           data: [],
-          borderColor: '#f87171',
-          backgroundColor: 'rgba(248,113,113,0.2)',
+          borderColor: '#facc15',
+          backgroundColor: 'rgba(250,204,21,0.2)',
           tension: 0.3,
           fill: true
         }]
