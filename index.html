@@ -47,6 +47,10 @@
       cursor: pointer;
       font-weight: bold;
     }
+    .danger {
+      background: #ef4444 !important;
+      color: white !important;
+    }
     .result {
       margin-top: 15px;
       font-size: 20px;
@@ -69,8 +73,8 @@
 
     <label>莊家明牌：</label>
     <select id="dealerCard"></select>
-   <button onclick="getStrategy()">取得建議</button>
-<button onclick="clearCards()" style="background:#ef4444;color:white;">🔁 清空牌面</button>
+    <button onclick="getStrategy()">取得建議</button>
+    <button onclick="clearCards()" class="danger">🔁 清空牌面</button>
     <div class="result" id="strategyResult">建議會顯示在這裡</div>
   </div>
 
@@ -117,7 +121,6 @@
         sel.appendChild(opt);
       });
     });
-
     function getCardValue(card, aceAsOne = false) {
       if (card === "A") return aceAsOne ? 1 : 11;
       if (["K", "Q", "J"].includes(card)) return 10;
@@ -189,6 +192,13 @@
       if (!currentBet || isNaN(currentBet)) currentBet = base;
 
       document.getElementById("nextBet").innerText = `下一注建議：${currentBet.toFixed(2)}`;
+    }
+
+    function clearCards() {
+      ["card1", "card2", "card3", "card4", "card5", "dealerCard"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+      document.getElementById("strategyResult").innerText = "建議會顯示在這裡";
     }
   </script>
 </body>
