@@ -174,53 +174,67 @@
     document.getElementById("strategyResult").innerText = "建議會顯示在這裡";
   }
     function getCardValue(card) {
-    if (["K","Q","J"].includes(card)) return 10;
-    if (card === "A") return 11;
-    return parseInt(card);
+  if (["K","Q","J"].includes(card)) return 10;
+  if (card === "A") return 11;
+  return parseInt(card);
+}
+
+// 修正版分牌邏輯（真人與Stake模式自動切換）
+function shouldSplit(pairCard, dealerCard, mode) {
+  const v = getCardValue(pairCard);
+  const d = getCardValue(dealerCard);
+
+  if (pairCard === "A" || v === 8) return true;
+  if (v === 10) return false;
+  if (v === 9) return ![7,10,11].includes(d);
+  if (v === 7) return d <= 7;
+  if (v === 6) return d <= 6;
+  if (v === 4) return d >= 5 && d <= 6;
+  if (v === 2 || v === 3) {
+    if (mode === "live") return d >= 4 && d <= 7;
+    else return d <= 7;
+  }
+  return false;
+}
+
+function getStrategy() {
+  const mode = document.getElementById("modeSelect").value;
+  const c1 = document.getElementById("card1").value;
+  const c2 = document.getElementById("card2").value;
+  const dealer = document.getElementById("dealerCard").value;
+
+  if (!c1 || !c2 || !dealer) {
+    document.getElementById("strategyResult").innerText = "請選擇至少前兩張牌與莊家明牌";
+    return;
   }
 
-  function shouldSplit(pairCard, dealerCard) {
-    const v = getCardValue(pairCard);
-    const d = getCardValue(dealerCard);
-    if (pairCard === "A" || v === 8) return true;
-    if (v === 10) return false;
-    if (v === 9) return ![7,10,11].includes(d);
-    if (v === 7) return d <= 7;
-    if (v === 6) return d <= 6;
-    if (v === 4) return d >= 5 && d <= 6;
-    if (v === 2 || v === 3) return d <= 7;
-    return false;
+  const cards = [c1, c2];
+  ["card3", "card4", "card5"].forEach(id => {
+    const val = document.getElementById(id).value;
+    if (val) cards.push(val);
+  });
+
+  const total = cards.reduce((sum, card) => sum + getCardValue(card), 0);
+  const dVal = getCardValue(dealer);
+
+  // 分牌條件只針對第一對牌
+  if (cards.length === 2 && c1 === c2 && shouldSplit(c1, dealer, mode)) {
+    document.getElementById("strategyResult").innerText = "建議：✌️ 分牌";
+    return;
   }
 
-  function getStrategy() {
-    const c1 = document.getElementById("card1").value;
-    const c2 = document.getElementById("card2").value;
-    const dealer = document.getElementById("dealerCard").value;
+  let advice = "";
 
-    if (!c1 || !c2 || !dealer) {
-      document.getElementById("strategyResult").innerText = "請選擇兩張牌與莊家明牌";
-      return;
-    }
+  if (total >= 17) advice = "✋ 停牌";
+  else if (total >= 13 && dVal <= 6) advice = "✋ 停牌";
+  else if (total === 12 && dVal >= 4 && dVal <= 6) advice = "✋ 停牌";
+  else if (total === 11) advice = "💣 加倍";
+  else if (total === 10 && dVal <= 9) advice = "💣 加倍";
+  else if (total === 9 && dVal >= 3 && dVal <= 6) advice = "💣 加倍";
+  else advice = "🃏 叫牌";
 
-    if (c1 === c2 && shouldSplit(c1, dealer)) {
-      document.getElementById("strategyResult").innerText = "建議：✌️ 分牌";
-      return;
-    }
-
-    const total = getCardValue(c1) + getCardValue(c2);
-    const dVal = getCardValue(dealer);
-    let advice = "";
-
-    if (total >= 17) advice = "✋ 停牌";
-    else if (total >= 13 && dVal <= 6) advice = "✋ 停牌";
-    else if (total === 12 && dVal >= 4 && dVal <= 6) advice = "✋ 停牌";
-    else if (total === 11) advice = "💣 加倍";
-    else if (total === 10 && dVal <= 9) advice = "💣 加倍";
-    else if (total === 9 && dVal >= 3 && dVal <= 6) advice = "💣 加倍";
-    else advice = "🃏 叫牌";
-
-    document.getElementById("strategyResult").innerText = "建議：" + advice;
-  }
+  document.getElementById("strategyResult").innerText = "建議：" + advice;
+}
 
   function currentBet() {
     const base = parseFloat(document.getElementById("baseBet").value);
