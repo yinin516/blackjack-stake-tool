@@ -1,27 +1,50 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>Stake 真人21點 輔助工具</title>
+  <title>Stake 真人 21 點輔助工具</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body { background-color: #0f172a; font-family: 'Segoe UI', sans-serif; color: #e2e8f0; padding: 20px; }
     h1, h2 { color: #facc15; }
-    .section, .stat-card, .chart-container {
-      background-color: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 20px;
-    }
+    .section { background-color: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
     select, input, button { font-size: 16px; margin: 6px; border-radius: 8px; padding: 8px 10px; }
     select, input { background-color: #334155; color: white; border: none; }
     button { background: #22c55e; color: black; font-weight: bold; cursor: pointer; }
     .danger { background: #ef4444; color: white; }
     .result { margin-top: 10px; font-size: 18px; }
+    .chart-container { height: 300px; margin-top: 20px; }
+    .hilobox button { background-color: #475569; color: white; margin: 2px; border: none; padding: 5px 8px; border-radius: 6px; }
+    .hilobox { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px; }
+    .mode-toggle { margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h1>Stake 真人21點 輔助工具</h1>
+  <h1>Stake 真人 21 點輔助工具</h1>
+
+  <div class="section mode-toggle">
+    <label><input type="radio" name="mode" value="original" checked> 原創模式</label>
+    <label><input type="radio" name="mode" value="live"> 真人模式</label>
+  </div>
 
   <div class="section">
-    <h2>基本策略建議 + 分牌</h2>
+    <h2>下注建議區</h2>
+    <label>初始本金：</label>
+    <input type="number" id="capital" value="1000">
+    <label>第一注：</label>
+    <input type="number" id="firstBet" value="50">
+    <label>策略：</label>
+    <select id="betStyle">
+      <option value="aggressive">衝一點</option>
+      <option value="safe">穩一點</option>
+      <option value="slow">慢慢打</option>
+    </select>
+    <button onclick="getNextBet()">下一注建議</button>
+    <div class="result" id="betResult"></div>
+  </div>
+
+  <div class="section">
+    <h2>基本策略建議（含分牌）</h2>
     <label>你的牌：</label>
     <select id="card1"></select>
     <select id="card2"></select>
@@ -33,6 +56,26 @@
     <button onclick="getStrategy()">取得建議</button>
     <button class="danger" onclick="clearCards()">清空</button>
     <div class="result" id="strategyResult">建議會顯示在這裡</div>
+  </div>
+
+  <div class="section">
+    <h2>算牌系統（Hi-Lo + True Count）</h2>
+    <label>牌組數：</label>
+    <input type="number" id="deckCount" value="6" min="1">
+    <div class="hilobox" id="hiloButtons"></div>
+    <div class="result" id="hiloResult">尚未點選任何牌</div>
+  </div>
+
+  <div class="section">
+    <h2>統計紀錄</h2>
+    <button onclick="recordResult('WIN')">WIN</button>
+    <button onclick="recordResult('LOSE')">LOSE</button>
+    <button onclick="recordResult('PUSH')">PUSH</button>
+    <button class="danger" onclick="resetStats()">清空紀錄</button>
+    <div id="stats">尚無紀錄</div>
+    <div class="chart-container">
+      <canvas id="resultChart"></canvas>
+    </div>
   </div>
 
   <script>
@@ -47,43 +90,48 @@
       });
     });
 
-    function getCardValue(c) {
-      if (!c) return 0;
-      if (["K","Q","J"].includes(c)) return 10;
-      if (c === "A") return 11;
-      return parseInt(c);
-    }
+    // 下一段將貼上主要策略邏輯、算牌統計與圖表邏輯...
+  </script>
+</body>
+</html>
+// --- 策略與下注建議 ---
+function getCardValue(c) {
+  if (!c) return 0;
+  if (["K","Q","J"].includes(c)) return 10;
+  if (c === "A") return 11;
+  return parseInt(c);
+}
 
-    function isSoftHand(cards) {
-      let aceCount = cards.filter(c => c === "A").length;
-      let total = cards.map(getCardValue).reduce((a,b)=>a+b,0);
-      while (total > 21 && aceCount > 0) {
-        total -= 10; aceCount--;
-      }
-      return cards.includes("A") && total <= 21 && aceCount > 0;
-    }
+function isSoftHand(cards) {
+  let aceCount = cards.filter(c => c === "A").length;
+  let total = cards.map(getCardValue).reduce((a,b)=>a+b,0);
+  while (total > 21 && aceCount > 0) {
+    total -= 10; aceCount--;
+  }
+  return cards.includes("A") && total <= 21 && aceCount > 0;
+}
 
-    function getStrategy() {
-      const cards = [1,2,3,4,5].map(i => document.getElementById("card"+i).value).filter(Boolean);
-      const dealer = document.getElementById("dealerCard").value;
-      if (cards.length < 2 || !dealer) return;
+function getStrategy() {
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  const cards = [1,2,3,4,5].map(i => document.getElementById("card"+i).value).filter(Boolean);
+  const dealer = document.getElementById("dealerCard").value;
+  if (cards.length < 2 || !dealer) return;
 
-      const total = cards.map(getCardValue).reduce((a,b)=>a+b,0);
-      const dealerVal = getCardValue(dealer);
-      const soft = isSoftHand(cards);
+  const total = cards.map(getCardValue).reduce((a,b)=>a+b,0);
+  const dealerVal = getCardValue(dealer);
+  const soft = isSoftHand(cards);
 
-      let advice = "";
-
-      if (cards.length === 2 && cards[0] === cards[1]) {
-        const pair = cards[0];
-        if (["A","8"].includes(pair)) advice = "✌️ 分牌";
-        else if (pair === "9" && ![7,10,11].includes(dealerVal)) advice = "✌️ 分牌";
-        else if (pair === "7" && dealerVal <= 7) advice = "✌️ 分牌";
-        else if (pair === "6" && dealerVal <= 6) advice = "✌️ 分牌";
-        else if (pair === "4" && dealerVal >= 5 && dealerVal <= 6) advice = "✌️ 分牌";
-        else if (["2","3"].includes(pair) && dealerVal <= 7) advice = "✌️ 分牌";
-      }
-
-      if (!advice) {
-        if (soft) {
-          if (total <= 17) advice = "
+  let advice = "";
+  if (cards.length === 2 && cards[0] === cards[1]) {
+    const pair = cards[0];
+    if (["A","8"].includes(pair)) advice = "✌️ 分牌";
+    else if (pair === "9" && ![7,10,11].includes(dealerVal)) advice = "✌️ 分牌";
+    else if (pair === "7" && dealerVal <= 7) advice = "✌️ 分牌";
+    else if (pair === "6" && dealerVal <= 6) advice = "✌️ 分牌";
+    else if (pair === "4" && dealerVal >= 5 && dealerVal <= 6) advice = "✌️ 分牌";
+    else if (["2","3"].includes(pair) && dealerVal <= 7) advice = "✌️ 分牌";
+  }
+  if (!advice) {
+    if (soft) {
+      if (total <= 17) advice = "
+</html>
